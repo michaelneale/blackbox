@@ -26,6 +26,7 @@ class StartupReport(db.Model):
   content = db.StringProperty(multiline=True)
 
 
+#this is for debugging really...
 class ErrorMessagesAdmin(webapp.RequestHandler):
   def get(self):
     self.response.out.write('<html><body>')
@@ -74,10 +75,36 @@ class CreateErrorReport(webapp.RequestHandler):
 
       
 
+class ReportViewer(webapp.RequestHandler): 
+  def get(self): 
+    checkAuth(self)
+    reports = db.GqlQuery("SELECT * FROM ErrorReport ORDER BY date DESC LIMIT 10")
+    self.response.headers['Content-Type'] = 'text/plain'
+    self.response.out.write("Project,Module,Version,Date,Contact Name,Contact Email,Report\n")
+
+    for report in reports:
+        self.response.out.write('%s,' % report.project)
+        self.response.out.write('%s,' % report.module)
+        self.response.out.write('%s,' % report.version)
+        self.response.out.write('"%s",' % report.date)
+        self.response.out.write('%s,' % report.contact_name)
+        self.response.out.write('%s,' % report.contact_email)
+        self.response.out.write('"%s"\n' % cgi.escape(report.content))
+
+
+
+def checkAuth(self): 
+  user = users.get_current_user()
+  if not user:
+    self.redirect(users.create_login_url(self.request.uri))
+    
+
+  
 
 
 application = webapp.WSGIApplication([('/', MainPage),
                                       ('/errors', ErrorMessagesAdmin), 
+                                      ('/error_reports', ReportViewer), 
                                       ('/create_error', CreateErrorReport)],
                                       debug=True)
 
