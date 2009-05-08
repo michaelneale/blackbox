@@ -26,6 +26,103 @@ class StartupReport(db.Model):
   content = db.StringProperty(multiline=True)
 
 
+
+class MainPage(webapp.RequestHandler): 
+  def get(self):
+    self.response.out.write('<html><body>BLACKBOX</body></html>')
+
+class CreateErrorReport(webapp.RequestHandler):
+  def post(self):
+    report = ErrorReport()
+    report.content = self.request.get('content')
+    report.project = self.request.get('project')
+    report.module = self.request.get('module')
+    report.version = self.request.get('version')
+    report.contact_name = self.request.get('contact_name')
+    report.contact_email = self.request.get('contact_email')
+    report.put()
+    self.redirect('/')
+
+
+class CreateStartupReport(webapp.RequestHandler):
+  def post(self):
+    report = StartupReport()
+    report.content = self.request.get('content')
+    report.project = self.request.get('project')
+    report.module = self.request.get('module')
+    report.version = self.request.get('version')
+    report.ip = self.request.remote_addr
+    report.put()
+    self.redirect('/')
+
+      
+
+class ReportViewerCsv(webapp.RequestHandler): 
+  def get(self): 
+    checkAuth(self)
+    reports = db.GqlQuery("SELECT * FROM ErrorReport ORDER BY date DESC LIMIT 10")
+    self.response.headers['Content-Type'] = 'text/plain'
+    self.response.out.write("Project,Module,Version,Date,Contact Name,Contact Email,Report\n")
+    for report in reports:
+        self.response.out.write('%s,' % report.project)
+        self.response.out.write('%s,' % report.module)
+        self.response.out.write('%s,' % report.version)
+        self.response.out.write('"%s",' % report.date)
+        self.response.out.write('%s,' % report.contact_name)
+        self.response.out.write('%s,' % report.contact_email)
+        self.response.out.write('"%s"\n' % report.content)
+
+
+class ReportViewerXML(webapp.RequestHandler): 
+  def get(self): 
+    checkAuth(self)
+    reports = db.GqlQuery("SELECT * FROM ErrorReport ORDER BY date DESC LIMIT 10")
+    self.response.headers['Content-Type'] = 'text/xml'
+    self.response.out.write("<error-reports>")
+    for report in reports:
+        self.response.out.write('<report>')
+        self.response.out.write('<project>%s</project>' % report.project)
+        self.response.out.write('<module>%s</module>' % report.module)
+        self.response.out.write('<version>%s</version>' % report.version)
+        self.response.out.write('<date>%s</date>' % report.date)
+        self.response.out.write('<name>%s</name>' % report.contact_name)
+        self.response.out.write('<email>%s</email>' % report.contact_email)
+        self.response.out.write('<report><![CDATA[%s]]></report>' % report.content)
+        self.response.out.write('</report>')
+    self.response.out.write('</error-reports>')
+    
+
+  
+  
+
+
+def checkAuth(self): 
+  user = users.get_current_user()
+  if not user:
+    self.redirect(users.create_login_url(self.request.uri))
+    
+
+  
+
+
+application = webapp.WSGIApplication([('/', MainPage),
+                                      ('/errors/csv', ReportViewerCsv), 
+                                      ('/errors/xml', ReportViewerXML), 
+                                      ('/create_error', CreateErrorReport),
+                                      ('/create_startup', CreateStartupReport) 
+                                      ],
+                                      debug=True)
+
+def main():
+  run_wsgi_app(application)
+
+if __name__ == "__main__":
+  main()
+
+
+
+
+
 #this is for debugging really...
 class ErrorMessagesAdmin(webapp.RequestHandler):
   def get(self):
@@ -55,61 +152,3 @@ class ErrorMessagesAdmin(webapp.RequestHandler):
           </form>
         </body>
       </html>""")
-
-class MainPage(webapp.RequestHandler): 
-  def get(self):
-    self.response.out.write('<html><body>BLACKBOX</body></html>')
-
-class CreateErrorReport(webapp.RequestHandler):
-  def post(self):
-    report = ErrorReport()
-    report.content = self.request.get('content')
-    report.project = self.request.get('project')
-    report.module = self.request.get('module')
-    report.version = self.request.get('version')
-    report.contact_name = self.request.get('contact_name')
-    report.contact_email = self.request.get('contact_email')
-#    report.ip = self.request.remote_addr
-    report.put()
-    self.redirect('/')
-
-      
-
-class ReportViewer(webapp.RequestHandler): 
-  def get(self): 
-    checkAuth(self)
-    reports = db.GqlQuery("SELECT * FROM ErrorReport ORDER BY date DESC LIMIT 10")
-    self.response.headers['Content-Type'] = 'text/plain'
-    self.response.out.write("Project,Module,Version,Date,Contact Name,Contact Email,Report\n")
-
-    for report in reports:
-        self.response.out.write('%s,' % report.project)
-        self.response.out.write('%s,' % report.module)
-        self.response.out.write('%s,' % report.version)
-        self.response.out.write('"%s",' % report.date)
-        self.response.out.write('%s,' % report.contact_name)
-        self.response.out.write('%s,' % report.contact_email)
-        self.response.out.write('"%s"\n' % cgi.escape(report.content))
-
-
-
-def checkAuth(self): 
-  user = users.get_current_user()
-  if not user:
-    self.redirect(users.create_login_url(self.request.uri))
-    
-
-  
-
-
-application = webapp.WSGIApplication([('/', MainPage),
-                                      ('/errors', ErrorMessagesAdmin), 
-                                      ('/error_reports', ReportViewer), 
-                                      ('/create_error', CreateErrorReport)],
-                                      debug=True)
-
-def main():
-  run_wsgi_app(application)
-
-if __name__ == "__main__":
-  main()
