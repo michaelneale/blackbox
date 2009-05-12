@@ -17,7 +17,7 @@ class ErrorReport(db.Model):
   content = db.StringProperty(multiline=True)
     
 
-class StartupReport(db.Model):
+class UsageReport(db.Model):
   project = db.StringProperty(multiline=False)
   module = db.StringProperty(multiline=False)
   version = db.StringProperty(multiline=False)
@@ -44,9 +44,9 @@ class CreateErrorReport(webapp.RequestHandler):
     self.redirect('/')
 
 
-class CreateStartupReport(webapp.RequestHandler):
+class CreateUsageReport(webapp.RequestHandler):
   def post(self):
-    report = StartupReport()
+    report = UsageReport()
     report.content = self.request.get('content')
     report.project = self.request.get('project')
     report.module = self.request.get('module')
@@ -76,7 +76,8 @@ class ReportViewerCsv(webapp.RequestHandler):
 class ReportViewerXML(webapp.RequestHandler): 
   def get(self): 
     checkAuth(self)
-    reports = db.GqlQuery("SELECT * FROM ErrorReport ORDER BY date DESC LIMIT 10")
+    reports = makeQuery(self.request.get('project'), self.request.get('module'), self.request.get('version'), self.request.get('from'), self.request.get('to'))
+              
     self.response.headers['Content-Type'] = 'text/xml'
     self.response.out.write("<error-reports>")
     for report in reports:
@@ -90,42 +91,25 @@ class ReportViewerXML(webapp.RequestHandler):
         self.response.out.write('<report><![CDATA[%s]]></report>' % report.content)
         self.response.out.write('</report>')
     self.response.out.write('</error-reports>')
-    
-
-  
-  
 
 
-def checkAuth(self): 
-  user = users.get_current_user()
-  if not user:
-    self.redirect(users.create_login_url(self.request.uri))
-    
-
-  
-
-
-application = webapp.WSGIApplication([('/', MainPage),
-                                      ('/errors/csv', ReportViewerCsv), 
-                                      ('/errors/xml', ReportViewerXML), 
-                                      ('/create_error', CreateErrorReport),
-                                      ('/create_startup', CreateStartupReport) 
-                                      ],
-                                      debug=True)
-
-def main():
-  run_wsgi_app(application)
-
-if __name__ == "__main__":
-  main()
-
-
-
+def makeQuery(project, module, version, from_date, to_date):
+  q = 'where project = :project'
+  if (from_date):
+    q = q + " and date <= DATETIME(:to_date)"
+  if (to_date):
+    q = q + " and date >= DATETIME(:from_date)"
+  if (module):
+    q = q + " and module = :module"
+  if (version):
+    q = q + " and version = :version"
+  return  ErrorReport.gql(q, project=project, version=version, module=module, from_date=from_date, to_date=to_date)
 
 
 #this is for debugging really...
 class ErrorMessagesAdmin(webapp.RequestHandler):
   def get(self):
+    checkAuth(self)
     self.response.out.write('<html><body>')
 
     reports = db.GqlQuery("SELECT * FROM ErrorReport ORDER BY date DESC LIMIT 10")
@@ -152,3 +136,36 @@ class ErrorMessagesAdmin(webapp.RequestHandler):
           </form>
         </body>
       </html>""")
+
+  
+  
+
+
+def checkAuth(self): 
+  user = users.get_current_user()
+  if not user:
+    self.redirect(users.create_login_url(self.request.uri))
+    
+
+  
+
+
+application = webapp.WSGIApplication([('/', MainPage),
+                                      ('/errors/csv', ReportViewerCsv), 
+                                      ('/errors/xml', ReportViewerXML), 
+                                      ('/create_error', CreateErrorReport),
+                                      ('/error_admin', ErrorMessagesAdmin),
+                                      ('/create_usage', CreateUsageReport) 
+                                      ],
+                                      debug=True)
+
+def main():
+  run_wsgi_app(application)
+
+if __name__ == "__main__":
+  main()
+
+
+
+
+
