@@ -89,6 +89,20 @@ class ReportViewerCsv(webapp.RequestHandler):
         self.response.out.write('"%s"\n' % report.content)
 
 
+class StartupViewerCsv(webapp.RequestHandler): 
+  def get(self): 
+    checkAuth(self)
+    reports = makeQuery("StartupReport", self.request.get('project'), self.request.get('module'), self.request.get('version'), self.request.get('from'), self.request.get('to'))              
+    self.response.headers['Content-Type'] = 'text/plain'
+    self.response.out.write("Project,Module,Version,Date,IP\n")
+    for report in reports:
+        self.response.out.write('%s,' % report.project)
+        self.response.out.write('%s,' % report.module)
+        self.response.out.write('%s,' % report.version)
+        self.response.out.write('"%s",' % report.date)
+        self.response.out.write('%s\n' % report.ip)
+
+
 class ReportViewerXML(webapp.RequestHandler): 
   def get(self): 
     checkAuth(self)
@@ -119,7 +133,6 @@ class UsageViewerXML(webapp.RequestHandler):
         self.response.out.write('<module>%s</module>' % report.module)
         self.response.out.write('<version>%s</version>' % report.version)
         self.response.out.write('<date>%s</date>' % report.date)
-        self.response.out.write('<ip>%s</ip>' % report.ip)
         self.response.out.write('<report><![CDATA[%s]]></report>' % report.content)
         self.response.out.write('</report>')
     self.response.out.write('</usage-reports>')
@@ -147,17 +160,21 @@ def checkAuth(self):
   user = users.get_current_user()
   if not user:
     self.redirect(users.create_login_url(self.request.uri))
-    
+  else:
+    if not (user.email() == "michael.neale@gmail.com" or user.email() == "max.andersen@gmail.com"):
+      self.redirect(users.create_login_url(self.request.uri))
 
   
 
 
 application = webapp.WSGIApplication([('/', MainPage),
                                       ('/errors/csv', ReportViewerCsv), 
+                                      ('/startup/csv', StartupViewerCsv), 
                                       ('/errors/xml', ReportViewerXML), 
                                       ('/usage/xml', UsageViewerXML), 
                                       ('/create_error', CreateErrorReport),
-                                      ('/create_usage', CreateUsageReport)
+                                      ('/create_usage', CreateUsageReport),
+                                      ('/create_startup', CreateStartupReport)
                                       ],
                                       debug=True)
 
