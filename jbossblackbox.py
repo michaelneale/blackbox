@@ -1,4 +1,5 @@
 import cgi
+import logging
 
 from google.appengine.api import users
 from google.appengine.ext import webapp
@@ -7,6 +8,13 @@ from google.appengine.ext import db
 
 
 
+class StartupReport(db.Model):
+  project = db.StringProperty(multiline=False)
+  module = db.StringProperty(multiline=False)
+  version = db.StringProperty(multiline=False)
+  date = db.DateTimeProperty(auto_now_add=True)
+  ip = db.StringProperty(multiline=False)
+
 class ErrorReport(db.Model):
   project = db.StringProperty(multiline=False)
   module = db.StringProperty(multiline=False)
@@ -14,17 +22,14 @@ class ErrorReport(db.Model):
   date = db.DateTimeProperty(auto_now_add=True)
   contact_name = db.StringProperty(multiline=False)
   contact_email = db.StringProperty(multiline=False)
-  content = db.StringProperty(multiline=True)
-    
+  content = db.TextProperty()
 
 class UsageReport(db.Model):
   project = db.StringProperty(multiline=False)
   module = db.StringProperty(multiline=False)
   version = db.StringProperty(multiline=False)
-  ip = db.StringProperty(multiline=False)
   date = db.DateTimeProperty(auto_now_add=True)
-  content = db.StringProperty(multiline=True)
-
+  content = db.TextProperty()
 
 
 class MainPage(webapp.RequestHandler): 
@@ -34,12 +39,12 @@ class MainPage(webapp.RequestHandler):
 class CreateErrorReport(webapp.RequestHandler):
   def post(self):
     report = ErrorReport()
-    report.content = self.request.get('content')
     report.project = self.request.get('project')
     report.module = self.request.get('module')
     report.version = self.request.get('version')
     report.contact_name = self.request.get('contact_name')
     report.contact_email = self.request.get('contact_email')
+    report.content = self.request.body
     report.put()
     self.redirect('/')
 
@@ -47,13 +52,24 @@ class CreateErrorReport(webapp.RequestHandler):
 class CreateUsageReport(webapp.RequestHandler):
   def post(self):
     report = UsageReport()
-    report.content = self.request.get('content')
+    report.content = self.request.body
+    report.project = self.request.get('project')
+    report.module = self.request.get('module')
+    report.version = self.request.get('version')
+    report.put()
+    self.redirect('/')
+
+
+class CreateStartupReport(webapp.RequestHandler):
+  def post(self):
+    report = StartupReport()
     report.project = self.request.get('project')
     report.module = self.request.get('module')
     report.version = self.request.get('version')
     report.ip = self.request.remote_addr
     report.put()
     self.redirect('/')
+
 
       
 
@@ -123,45 +139,6 @@ def makeQuery(entity, project, module, version, from_date, to_date):
     q = q + " and version = :version"
   return  db.GqlQuery(q, project=project, version=version, module=module, from_date=from_date, to_date=to_date)
 
-
-#this is for debugging really...
-class ErrorMessagesAdmin(webapp.RequestHandler):
-  def get(self):
-    checkAuth(self)
-    self.response.out.write('<html><body>')
-
-    # Write the submission form and the footer of the page
-    self.response.out.write("""
-          <form action="/create_error" method="post">
-            <div>Project: <input type="text" name="project" /></div>
-            <div>Module: <input type="text" name="module" /></div>
-            <div>Version: <input type="text" name="version" /></div>
-            <div>Contact name: <input type="text" name="contact_name" /></div>
-            <div>Contact email: <input type="text" name="contact_email" /></div>
-            <div>Report: <textarea name="content" rows="3" cols="60"></textarea></div>
-            <div><input type="submit" value="Create report"></div>
-          </form>
-        </body>
-      </html>""")
-
-class UsageAdmin(webapp.RequestHandler):
-  def get(self):
-    checkAuth(self)
-    self.response.out.write('<html><body>')
-
-    # Write the submission form and the footer of the page
-    self.response.out.write("""
-          <form action="/create_usage" method="post">
-            <div>Project: <input type="text" name="project" /></div>
-            <div>Module: <input type="text" name="module" /></div>
-            <div>Version: <input type="text" name="version" /></div>
-            <div>Report: <textarea name="content" rows="3" cols="60"></textarea></div>
-            <div><input type="submit" value="Create report"></div>
-          </form>
-        </body>
-      </html>""")
-
-
   
   
 
@@ -180,9 +157,7 @@ application = webapp.WSGIApplication([('/', MainPage),
                                       ('/errors/xml', ReportViewerXML), 
                                       ('/usage/xml', UsageViewerXML), 
                                       ('/create_error', CreateErrorReport),
-                                      ('/create_usage', CreateUsageReport),
-                                      ('/error_admin', ErrorMessagesAdmin),
-                                      ('/usage_admin', UsageAdmin) 
+                                      ('/create_usage', CreateUsageReport)
                                       ],
                                       debug=True)
 
