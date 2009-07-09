@@ -8,12 +8,7 @@ from google.appengine.ext import db
 
 
 
-class StartupReport(db.Model):
-  project = db.StringProperty(multiline=False)
-  module = db.StringProperty(multiline=False)
-  version = db.StringProperty(multiline=False)
-  date = db.DateTimeProperty(auto_now_add=True)
-  ip = db.StringProperty(multiline=False)
+
 
 class ErrorReport(db.Model):
   project = db.StringProperty(multiline=False)
@@ -28,7 +23,7 @@ class UsageReport(db.Model):
   project = db.StringProperty(multiline=False)
   module = db.StringProperty(multiline=False)
   version = db.StringProperty(multiline=False)
-  date = db.DateTimeProperty(auto_now_add=True)
+  date = db.DateTimeProperty(auto_now_add=True)  
   content = db.TextProperty()
 
 
@@ -60,17 +55,6 @@ class CreateUsageReport(webapp.RequestHandler):
     self.redirect('/')
 
 
-class CreateStartupReport(webapp.RequestHandler):
-  def post(self):
-    report = StartupReport()
-    report.project = self.request.get('project')
-    report.module = self.request.get('module')
-    report.version = self.request.get('version')
-    report.ip = self.request.remote_addr
-    report.put()
-    self.redirect('/')
-
-
       
 
 class ReportViewerCsv(webapp.RequestHandler): 
@@ -89,18 +73,6 @@ class ReportViewerCsv(webapp.RequestHandler):
         self.response.out.write('"%s"\n' % report.content)
 
 
-class StartupViewerCsv(webapp.RequestHandler): 
-  def get(self): 
-    checkAuth(self)
-    reports = makeQuery("StartupReport", self.request.get('project'), self.request.get('module'), self.request.get('version'), self.request.get('from'), self.request.get('to'))              
-    self.response.headers['Content-Type'] = 'text/plain'
-    self.response.out.write("Project,Module,Version,Date,IP\n")
-    for report in reports:
-        self.response.out.write('%s,' % report.project)
-        self.response.out.write('%s,' % report.module)
-        self.response.out.write('%s,' % report.version)
-        self.response.out.write('"%s",' % report.date)
-        self.response.out.write('%s\n' % report.ip)
 
 
 class ReportViewerXML(webapp.RequestHandler): 
@@ -169,12 +141,10 @@ def checkAuth(self):
 
 application = webapp.WSGIApplication([('/', MainPage),
                                       ('/errors/csv', ReportViewerCsv), 
-                                      ('/startup/csv', StartupViewerCsv), 
                                       ('/errors/xml', ReportViewerXML), 
                                       ('/usage/xml', UsageViewerXML), 
                                       ('/create_error', CreateErrorReport),
-                                      ('/create_usage', CreateUsageReport),
-                                      ('/create_startup', CreateStartupReport)
+                                      ('/create_usage', CreateUsageReport)
                                       ],
                                       debug=True)
 
