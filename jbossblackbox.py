@@ -23,7 +23,8 @@ class UsageReport(db.Model):
   project = db.StringProperty(multiline=False)
   module = db.StringProperty(multiline=False)
   version = db.StringProperty(multiline=False)
-  date = db.DateTimeProperty(auto_now_add=True)  
+  date = db.DateTimeProperty(auto_now_add=True)
+  correlation_id = db.StringProperty(multiline=False)  
   content = db.TextProperty()
 
 
@@ -51,6 +52,7 @@ class CreateUsageReport(webapp.RequestHandler):
     report.project = self.request.get('project')
     report.module = self.request.get('module')
     report.version = self.request.get('version')
+    report.correlation_id = self.request.get('correlation_id')
     report.put()
     self.redirect('/')
 
@@ -105,6 +107,7 @@ class UsageViewerXML(webapp.RequestHandler):
         self.response.out.write('<module>%s</module>' % report.module)
         self.response.out.write('<version>%s</version>' % report.version)
         self.response.out.write('<date>%s</date>' % report.date)
+        self.response.out.write('<correlation_id>%s</correlation_id>' % report.correlation_id)
         self.response.out.write('<report><![CDATA[%s]]></report>' % report.content)
         self.response.out.write('</report>')
     self.response.out.write('</usage-reports>')
